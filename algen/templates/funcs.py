@@ -60,7 +60,7 @@ comparator = Template("""
 
 representor = Template("""
     def __${func_name}__(self):
-        return "<$class_name: $key_evaluators>".format($key_accessors)""")
+        return "<$class_name: $col_evaluators>".format($col_accessors)""")
 
 hash_function = Template("""
     def __hash__(self):

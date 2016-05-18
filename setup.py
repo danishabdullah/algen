@@ -7,10 +7,10 @@ with open("requirements.txt", 'r') as file:
     requirements = file.readlines()
 
 with open("readme.md", 'r') as file:
-    readme = file.readlines()
+    readme = file.read()
 
 with open("LICENSE", 'r') as file:
-    license = file.readlines()
+    license = file.read()
 
 setup(
     name='algen',

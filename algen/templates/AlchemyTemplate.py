@@ -23,7 +23,6 @@ class AlchemyTemplate(object):
         self.col_assignment = col_assignment
         self.not_none_col_assignment = not_none_col_assignment
         self.named_import = named_import
-        self.key_col_comparison = key_col_comparison
         self.init_function = init
         self.add_function = add
         self.delete_function = delete
@@ -31,9 +30,10 @@ class AlchemyTemplate(object):
         self.comparator_function = comparator
         self.representor_function = representor
         self.hash_function = hash_function
-        self.key_evaluator = key_evaluator
-        self.key_accessor = key_accessor
+        self.col_evaluator = col_evaluator
+        self.col_accessor = col_accessor
         self.to_dict_function = to_dict
         self.get_proxy_cls_function = get_proxy_cls
         self.to_proxy_function = to_proxy
         self.from_proxy_function = from_proxy
+        self.key_col_comparator = key_col_comparator

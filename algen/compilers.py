@@ -188,7 +188,7 @@ class ModelCompiler(object):
 
     def comparator_compiler(self, negation_type):
         def get_primary_key_comparator(pkey_name):
-            return "self.{pkey} == other.{pkey}".format(pkey=pkey_name)
+            return ALCHEMY_TEMPLATES.key_col_comparator.safe_substitute(col=pkey_name)
 
         assert negation_type in ('positive', 'negative')
         negation_marker = "not " if negation_type == 'negative' else ""
@@ -197,7 +197,7 @@ class ModelCompiler(object):
         key_comparators = " and ".join(key_comparators)
         return ALCHEMY_TEMPLATES.comparator_function.safe_substitute(func_name=func_name,
                                                                      negation_marker=negation_marker,
-                                                                     primary_key_comparisons=key_comparators)
+                                                                     key_col_comparisons=key_comparators)
 
     @property
     def compiled_eq_func(self):
@@ -211,18 +211,18 @@ class ModelCompiler(object):
     def representation_function_compiler(self, func_name):
         """Generic function can be used to compile __repr__ or __unicode__ or __str__"""
 
-        def get_key_accessor(key):
-            return ALCHEMY_TEMPLATES.key_accessor.safe_substitute(key=key)
+        def get_col_accessor(col):
+            return ALCHEMY_TEMPLATES.col_accessor.safe_substitute(col=col)
 
-        def get_key_evaluator(key):
-            return ALCHEMY_TEMPLATES.key_evaluator.safe_substitute(key=key)
+        def get_col_evaluator(col):
+            return ALCHEMY_TEMPLATES.col_evaluator.safe_substitute(col=col)
 
-        key_evaluators = ", ".join([get_key_evaluator(n) for n in self.primary_keys])
-        key_accessors = ", ".join([get_key_accessor(n) for n in self.primary_keys])
+        col_evaluators = ", ".join([get_col_evaluator(n) for n in self.primary_keys])
+        col_accessors = ", ".join([get_col_accessor(n) for n in self.primary_keys])
 
         return ALCHEMY_TEMPLATES.representor_function.safe_substitute(func_name=func_name,
-                                                                      key_accessors=key_accessors,
-                                                                      key_evaluators=key_evaluators,
+                                                                      col_accessors=col_accessors,
+                                                                      col_evaluators=col_evaluators,
                                                                       class_name=self.class_name)
 
     @property
@@ -241,6 +241,11 @@ class ModelCompiler(object):
         return self.representation_function_compiler('repr')
 
     @property
+    def compiled_proxy_cls_func(self):
+        """Returns compile get_proxy_cls function"""
+        return ALCHEMY_TEMPLATES.get_proxy_cls_function.safe_substitute(class_name=self.class_name)
+
+    @property
     def compiled_model(self):
         """Returns compile ORM class for the user supplied model"""
         return ALCHEMY_TEMPLATES.model.safe_substitute(class_name=self.class_name,
@@ -257,9 +262,9 @@ class ModelCompiler(object):
                                                        types=", ".join(self.standard_types),
                                                        username=self.username,
                                                        named_imports=self.compiled_named_imports,
+                                                       get_proxy_cls_function=self.compiled_proxy_cls_func,
                                                        add_function=ALCHEMY_TEMPLATES.add_function.template,
                                                        delete_function=ALCHEMY_TEMPLATES.delete_function.template,
                                                        to_dict_function=ALCHEMY_TEMPLATES.to_dict_function.template,
                                                        to_proxy_function=ALCHEMY_TEMPLATES.to_proxy_function.template,
-                                                       get_proxy_cls_function=ALCHEMY_TEMPLATES.get_proxy_cls_function.template,
                                                        from_proxy_function=ALCHEMY_TEMPLATES.from_proxy_function.template)

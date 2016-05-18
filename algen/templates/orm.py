@@ -3,15 +3,19 @@ from string import Template
 
 __author__ = "danishabdullah"
 
-__all__ = ('cls')
+__all__ = ('cls',)
 
 cls = Template("""from __future__ import unicode_literals, absolute_import, print_function
-__author__ = '$username'
 
 from collections import namedtuple
 
 from sqlalchemy import Column, $types
 $named_imports
+
+from .alchemy_base import Base
+
+__author__ = '$username'
+
 
 class $class_name(Base):
     __tablename__ = '$table_name'
@@ -24,7 +28,7 @@ class $class_name(Base):
     $delete_function
     $to_dict_function
     $get_proxy_cls_function
-    $as_proxy_function
+    $to_proxy_function
     $from_proxy_function
     $hash_function
     $eq_function
