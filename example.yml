@@ -1,0 +1,28 @@
+Person:
+  columns:
+    - name: id
+      type: BigInteger
+      primary_key: True
+      auto_increment: True
+    - name: name
+      type: Unicode(255)
+    - name: is_vip
+      type: Boolean
+    - name: created_at
+      type: DateTime(timezone=True)
+
+Address:
+  columns:
+    - name: id
+      type: BigInteger
+      primary_key: True
+      auto_increment: True
+    - name: line1
+      type: Unicode()
+    - name: line2
+      type: Unicode()
+    - name: line3
+      type: Unicode()
+    - name: postcode
+      type: Unicode(10)
+      index: True
