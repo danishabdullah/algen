@@ -1,8 +1,12 @@
 # Algen 
 
-Algen generates opionated ORM classes for sqlalchemy given a simple schema either as a commandline string or as a yaml file.     
+Algen generates opionated ORM classes for sqlalchemy given a simple schema     
+either as a commandline string or as a yaml file.     
 It is designed to have minimal dependencies and is trivially extensible.    
 A command line tool is bundled along to help generate the models.    
+For DB specific types, only postgres is currently supported.    
+The tool currently assumes that sqlalchemy's declarative base object    
+is to be imported like ```from .alchemy_base import Base```
 
 
 ### CLI
