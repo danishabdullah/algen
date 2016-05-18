@@ -54,8 +54,8 @@ Address:
       index: True
 ```
 
-The cli tool will create two the following two files     
-```Person.py```
+The cli tool will create two the following two files ```Person.py```  and  ```Address.py```.    
+   
 ```python
 from __future__ import unicode_literals, absolute_import, print_function
 
@@ -148,7 +148,6 @@ class Person(Base):
         return "<Person: {id}>".format(id=self.id)
 ```
 
-```Address.py```
 ```python
 from __future__ import unicode_literals, absolute_import, print_function
 
