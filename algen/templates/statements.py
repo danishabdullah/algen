@@ -15,6 +15,6 @@ not_none_col_assignment = Template("""
         if $col_name is not None:
             self.$col_name = $col_name""")
 key_col_comparator = Template("self.$col == other.$col")
-named_import = "from $module import $labels"
+named_import = Template("from $module import $labels")
 col_evaluator = Template("{$col}")
 col_accessor = Template("$col=self.$col")
