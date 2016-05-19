@@ -14,7 +14,7 @@ with open("LICENSE", 'r') as file:
 
 setup(
     name='algen',
-    version='0.9',
+    version='0.9.1',
     packages=find_packages(),
     url='https://github.com/danishabdullah/algen',
     install_requires=requirements,
