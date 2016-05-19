@@ -7,7 +7,7 @@ __all__ = ('column_definition', 'mutable_dict_type', 'column_arg', 'func_arg', '
            'not_none_col_assignment', 'key_col_comparator', 'col_evaluator', 'col_accessor')
 
 column_definition = Template("$column_name = Column($column_type$type_params, $column_args)")
-mutable_dict_type = Template("MutableDict.as_mutable($type)")
+mutable_dict_type = Template("MutableDict.as_mutable($type$type_params)")
 column_arg = Template("$arg_name=$arg_val")
 func_arg = Template("$arg_name=None")
 col_assignment = Template("self.$col_name = $col_name")

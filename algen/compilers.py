@@ -127,7 +127,9 @@ class ModelCompiler(object):
             column_type, type_params = ModelCompiler.get_col_type_info(column.get('type'))
             column_name = column.get('name')
             if column_type in MUTABLE_DICT_TYPES:
-                column_type = ALCHEMY_TEMPLATES.mutable_dict_type.safe_substitute(type=column_type)
+                column_type = ALCHEMY_TEMPLATES.mutable_dict_type.safe_substitute(type=column_type,
+                                                                                  type_params=type_params)
+                type_params = ''
             res.append(
                 ALCHEMY_TEMPLATES.column_definition.safe_substitute(column_name=column_name,
                                                                     column_type=column_type,
