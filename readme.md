@@ -7,7 +7,7 @@ is bundled along to help generate the models. For DB specific types,
 only postgres is currently supported. The tool currently assumes that
 sqlalchemy's declarative base object is to be imported like
     ```from .alchemy_base import Base```
-The library prefers making the code verbose rather than consise for the
+The library prefers making the code verbose rather than concise for the
 sake of having better auto-completion and help from your editor/IDE
 e.g. first style is preferred to the second one:
 ```python
