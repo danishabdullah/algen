@@ -1,12 +1,28 @@
-# Algen 
+# Algen
 
-Algen generates opionated ORM classes for sqlalchemy given a simple schema     
-either as a commandline string or as a yaml file.     
-It is designed to have minimal dependencies and is trivially extensible.    
-A command line tool is bundled along to help generate the models.    
-For DB specific types, only postgres is currently supported.    
-The tool currently assumes that sqlalchemy's declarative base object    
-is to be imported like ```from .alchemy_base import Base```
+Algen generates opionated ORM classes for sqlalchemy given a simple schema
+either as a commandline string or as a yaml file. It is designed to have
+minimal dependencies and is trivially extensible. A command line tool
+is bundled along to help generate the models. For DB specific types,
+only postgres is currently supported. The tool currently assumes that
+sqlalchemy's declarative base object is to be imported like
+    ```from .alchemy_base import Base```
+The library prefers making the code verbose rather than consise for the
+sake of having better auto-completion and help from your editor/IDE
+e.g. first style is preferred to the second one:
+```python
+def update(self, a=None, b=None):
+    if a is not None:
+        self.a = a
+    if b is not None:
+        self.b = b
+```
+```python
+def update(self, **kwargs):
+    for k,v in kwargs.items():
+        if hasattr(self, k) and v is not None:
+            setattr(self, k, v)
+```
 
 
 ### CLI
@@ -58,8 +74,8 @@ Address:
       index: True
 ```
 
-The cli tool will create two the following two files ```Person.py```  and  ```Address.py```.    
-   
+The cli tool will create two the following two files ```Person.py```  and  ```Address.py```.
+
 ```python
 from __future__ import unicode_literals, absolute_import, print_function
 
@@ -81,37 +97,37 @@ class Person(Base):
     is_vip = Column(Boolean, )
     created_at = Column(DateTime(timezone=True), )
 
-    
+
     def __init__(self, id=None, name=None, is_vip=None, created_at=None):
         self.id = id
         self.name = name
         self.is_vip = is_vip
         self.created_at = created_at
-    
+
     def add(self, session):
         session.add(self)
-    
+
     def update(self, name=None, is_vip=None, created_at=None):
         # This function only updates a value if it is not None.
         # Falsy values go through in the normal way.
         # To set things to None use the usual syntax:
         #    Person.column_name = None
-        
+
         if name is not None:
             self.name = name
-        
+
         if is_vip is not None:
             self.is_vip = is_vip
-        
+
         if created_at is not None:
             self.created_at = created_at
-    
+
     def delete(self, session):
         session.delete(self)
-    
+
     def to_dict(self):
         return {x: y for x, y in self.__dict__.items() if not x.startswith("_sa")}
-    
+
     def get_proxy_cls(self):
         # PersonProxy is useful when you want to persist data
         # independent of the sqlalchemy session. It's just a namedtuple
@@ -120,7 +136,7 @@ class Person(Base):
         keys = self.to_dict().keys()
         name = "PersonProxy"
         return namedtuple(name, keys)
-    
+
     def to_proxy(self):
         # Proxy-ing is useful when you want to persist data
         # independent of the sqlalchemy session. It's just a namedtuple
@@ -128,26 +144,26 @@ class Person(Base):
         # orm class instances.
         cls = self._get_proxy_cls()
         return cls(**self.to_dict())
-    
+
     @classmethod
     def from_proxy(cls, proxy):
         return cls(**proxy._asdict())
-    
+
     def __hash__(self):
         return hash(str(self.id))
-    
+
     def __eq__(self, other):
         return (self.id == other.id)
-    
+
     def __neq__(self, other):
         return not (self.id == other.id)
-    
+
     def __str__(self):
         return "<Person: {id}>".format(id=self.id)
-    
+
     def __unicode__(self):
         return "<Person: {id}>".format(id=self.id)
-    
+
     def __repr__(self):
         return "<Person: {id}>".format(id=self.id)
 ```
@@ -174,41 +190,41 @@ class Address(Base):
     line3 = Column(Unicode(), )
     postcode = Column(Unicode(10), index=True)
 
-    
+
     def __init__(self, id=None, line1=None, line2=None, line3=None, postcode=None):
         self.id = id
         self.line1 = line1
         self.line2 = line2
         self.line3 = line3
         self.postcode = postcode
-    
+
     def add(self, session):
         session.add(self)
-    
+
     def update(self, line1=None, line2=None, line3=None, postcode=None):
         # This function only updates a value if it is not None.
         # Falsy values go through in the normal way.
         # To set things to None use the usual syntax:
         #    Address.column_name = None
-        
+
         if line1 is not None:
             self.line1 = line1
-        
+
         if line2 is not None:
             self.line2 = line2
-        
+
         if line3 is not None:
             self.line3 = line3
-        
+
         if postcode is not None:
             self.postcode = postcode
-    
+
     def delete(self, session):
         session.delete(self)
-    
+
     def to_dict(self):
         return {x: y for x, y in self.__dict__.items() if not x.startswith("_sa")}
-    
+
     def get_proxy_cls(self):
         # AddressProxy is useful when you want to persist data
         # independent of the sqlalchemy session. It's just a namedtuple
@@ -217,7 +233,7 @@ class Address(Base):
         keys = self.to_dict().keys()
         name = "AddressProxy"
         return namedtuple(name, keys)
-    
+
     def to_proxy(self):
         # Proxy-ing is useful when you want to persist data
         # independent of the sqlalchemy session. It's just a namedtuple
@@ -225,26 +241,26 @@ class Address(Base):
         # orm class instances.
         cls = self._get_proxy_cls()
         return cls(**self.to_dict())
-    
+
     @classmethod
     def from_proxy(cls, proxy):
         return cls(**proxy._asdict())
-    
+
     def __hash__(self):
         return hash(str(self.id))
-    
+
     def __eq__(self, other):
         return (self.id == other.id)
-    
+
     def __neq__(self, other):
         return not (self.id == other.id)
-    
+
     def __str__(self):
         return "<Address: {id}>".format(id=self.id)
-    
+
     def __unicode__(self):
         return "<Address: {id}>".format(id=self.id)
-    
+
     def __repr__(self):
         return "<Address: {id}>".format(id=self.id)
 
