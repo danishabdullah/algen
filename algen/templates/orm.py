@@ -10,6 +10,7 @@ cls = Template("""from __future__ import unicode_literals, absolute_import, prin
 from collections import namedtuple
 
 from sqlalchemy import Column, $types
+$orm_imports
 $named_imports
 
 from .alchemy_base import Base
@@ -22,6 +23,11 @@ class $class_name(Base):
 
     $column_definitions
 
+    # --- Foreign Keys ---
+    $foreign_keys
+
+    # --- Relationships ---
+    $relationships
     $init_function
     $add_function
     $update_function

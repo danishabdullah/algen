@@ -23,7 +23,7 @@ class InvalidModelDefinition(Exception):
 
 
 def check_or_create_models_dir(destination=None):
-    dir = destination or "{}/Models".format(getcwd())
+    dir = destination or "{}/models".format(getcwd())
     if not path.exists(dir):
         click.echo("Didn't find {}. Creating now.".format(dir))
         try:
@@ -50,14 +50,40 @@ def ensure_names(model_defs):
     for model_def in model_defs.values():
         for column in model_def['columns']:
             if not column.get('name', None):
-                raise InvalidModelDefinition
+                raise InvalidModelDefinition("Missing 'name")
 
 
 def ensure_types(model_defs):
     for model_def in model_defs.values():
         for column in model_def['columns']:
             if not column.get('type', None):
-                raise InvalidModelDefinition
+                raise InvalidModelDefinition("Missing 'type")
+
+
+def ensure_foreign_keys(model_defs):
+    for model_def in model_defs.values():
+        for column in model_def.get('foreign_keys', []):
+            if not column.get('name', None):
+                raise InvalidModelDefinition("Missing 'name")
+            if not column.get('type', None):
+                raise InvalidModelDefinition("Missing 'type")
+            reference = column.get('reference', None)
+            if not reference:
+                raise InvalidModelDefinition("Missing 'reference' from foreign key")
+            assert isinstance(reference, dict)
+            if not reference.get('table', None):
+                raise InvalidModelDefinition("Missing 'reference.name' from foreign key")
+            if not reference.get('column', None):
+                raise InvalidModelDefinition("Missing 'reference.column' from foreign key")
+
+
+def ensure_relationships(model_defs):
+    for model_def in model_defs.values():
+        for column in model_def.get('relationships', []):
+            if not column.get('name', None):
+                raise InvalidModelDefinition("Missing 'name")
+            if not column.get('class', None):
+                raise InvalidModelDefinition("Missing 'class' from relationship")
 
 
 def parse_yaml(pth):
@@ -68,6 +94,9 @@ def parse_yaml(pth):
         model_defs = yaml.load(fyle)
     assert isinstance(model_defs, dict)
     ensure_names(model_defs)
+    ensure_types(model_defs)
+    ensure_foreign_keys(model_defs)
+    ensure_relationships(model_defs)
     return model_defs
 
 
@@ -87,7 +116,7 @@ def get_model_defs(name=None, columns=None, yaml=None):
                     "columns. e.g. -c foo:Int -c bar:Unicode(20)"),
               type=str, multiple=True)
 @click.option('--destination', '-d', help=("Destination directory. Default will "
-                                           "assume 'Models' directory inside the"
+                                           "assume 'models' directory inside the"
                                            " current working directory"),
               type=click.Path(exists=True))
 @click.option('--yaml', '-y', help=("Yaml file describing the Model. This "
@@ -106,7 +135,7 @@ def cli(name, columns, destination, yaml):
         # destination cannot be created or accessed
         destination = check_or_create_models_dir(destination=destination)
     except DirectoryCreationException as e:
-        click.echo("An error happened while trying to access/create the Models "
+        click.echo("An error happened while trying to access/create the 'models' "
                    "directory. Please make sure that you have the "
                    "appropriate ownership and right provided by the os.")
         return
@@ -135,7 +164,7 @@ def cli(name, columns, destination, yaml):
         return
     for name, column_defs in model_defs.items():
         model = ModelCompiler(name, column_defs).compiled_model
-        filename = "{}/{}.py".format(destination, name)
+        filename = "{}/{}.py".format(destination, ModelCompiler.convert_case(name))
         try:
             # file is not writeable
             with open(filename, 'w') as fyle:

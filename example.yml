@@ -10,6 +10,14 @@ Person:
       type: Boolean
     - name: created_at
       type: DateTime(timezone=True)
+      server_default: now() at time zone 'utc'
+    - name: updated_at
+      type: DateTime(timezone=True)
+      server_default: now() at time zone 'utc'
+  relationships:
+    - name: addresses
+      class: Address
+      back_populates: 'person'
 
 Address:
   columns:
@@ -26,3 +34,20 @@ Address:
     - name: postcode
       type: Unicode(10)
       index: True
+    - name: created_at
+      type: DateTime(timezone=True)
+      server_default: now() at time zone 'utc'
+    - name: updated_at
+      type: DateTime(timezone=True)
+      server_default: now() at time zone 'utc'
+  foreign_keys:
+    - name: person_id
+      type: BigInteger
+      reference:
+        table: persons
+        column: id
+      nullable: False
+  relationships:
+    - name: person
+      class: Person
+      back_populates: 'addresses'

@@ -35,7 +35,7 @@ Options:
   -c, --columns TEXT      Column definition. e.g. col_name:col_type Can be
                           used multiple times hence named columns. e.g. -c
                           foo:Int -c bar:Unicode(20)
-  -d, --destination PATH  Destination directory. Default will assume 'Models'
+  -d, --destination PATH  Destination directory. Default will assume 'models'
                           directory inside the current working directory
   -y, --yaml PATH         Yaml file describing the Model. This supersedes the
                           column definition provided through --columns option.
@@ -56,6 +56,14 @@ Person:
       type: Boolean
     - name: created_at
       type: DateTime(timezone=True)
+      server_default: now() at time zone 'utc'
+    - name: updated_at
+      type: DateTime(timezone=True)
+      server_default: now() at time zone 'utc'
+  relationships:
+    - name: addresses
+      class: Address
+      back_populates: 'person'
 
 Address:
   columns:
@@ -72,108 +80,35 @@ Address:
     - name: postcode
       type: Unicode(10)
       index: True
+    - name: created_at
+      type: DateTime(timezone=True)
+      server_default: now() at time zone 'utc'
+    - name: updated_at
+      type: DateTime(timezone=True)
+      server_default: now() at time zone 'utc'
+  foreign_keys:
+    - name: person_id
+      type: BigInteger
+      reference:
+        table: persons
+        column: id
+      nullable: False
+  relationships:
+    - name: person
+      class: Person
+      back_populates: 'addresses'
+
 ```
 
-The cli tool will create two the following two files ```Person.py```  and  ```Address.py```.
+The cli tool will create two the following two files ```person.py```  and  ```address.py```.
 
 ```python
 from __future__ import unicode_literals, absolute_import, print_function
 
 from collections import namedtuple
 
-from sqlalchemy import Column, DateTime, Boolean, Unicode, BigInteger
-
-
-from .alchemy_base import Base
-
-__author__ = 'danishabdullah'
-
-
-class Person(Base):
-    __tablename__ = 'persons'
-
-    id = Column(BigInteger, primary_key=True, auto_increment=True)
-    name = Column(Unicode(255), )
-    is_vip = Column(Boolean, )
-    created_at = Column(DateTime(timezone=True), )
-
-
-    def __init__(self, id=None, name=None, is_vip=None, created_at=None):
-        self.id = id
-        self.name = name
-        self.is_vip = is_vip
-        self.created_at = created_at
-
-    def add(self, session):
-        session.add(self)
-
-    def update(self, name=None, is_vip=None, created_at=None):
-        # This function only updates a value if it is not None.
-        # Falsy values go through in the normal way.
-        # To set things to None use the usual syntax:
-        #    Person.column_name = None
-
-        if name is not None:
-            self.name = name
-
-        if is_vip is not None:
-            self.is_vip = is_vip
-
-        if created_at is not None:
-            self.created_at = created_at
-
-    def delete(self, session):
-        session.delete(self)
-
-    def to_dict(self):
-        return {x: y for x, y in self.__dict__.items() if not x.startswith("_sa")}
-
-    def get_proxy_cls(self):
-        # PersonProxy is useful when you want to persist data
-        # independent of the sqlalchemy session. It's just a namedtuple
-        # that has very low memory/cpu footprint compared the regular
-        # orm class instances.
-        keys = self.to_dict().keys()
-        name = "PersonProxy"
-        return namedtuple(name, keys)
-
-    def to_proxy(self):
-        # Proxy-ing is useful when you want to persist data
-        # independent of the sqlalchemy session. It's just a namedtuple
-        # that has very low memory/cpu footprint compared the regular
-        # orm class instances.
-        cls = self._get_proxy_cls()
-        return cls(**self.to_dict())
-
-    @classmethod
-    def from_proxy(cls, proxy):
-        return cls(**proxy._asdict())
-
-    def __hash__(self):
-        return hash(str(self.id))
-
-    def __eq__(self, other):
-        return (self.id == other.id)
-
-    def __neq__(self, other):
-        return not (self.id == other.id)
-
-    def __str__(self):
-        return "<Person: {id}>".format(id=self.id)
-
-    def __unicode__(self):
-        return "<Person: {id}>".format(id=self.id)
-
-    def __repr__(self):
-        return "<Person: {id}>".format(id=self.id)
-```
-
-```python
-from __future__ import unicode_literals, absolute_import, print_function
-
-from collections import namedtuple
-
-from sqlalchemy import Column, Unicode, BigInteger
+from sqlalchemy import Column, Unicode, BigInteger, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 
 
 from .alchemy_base import Base
@@ -184,24 +119,34 @@ __author__ = 'danishabdullah'
 class Address(Base):
     __tablename__ = 'addresses'
 
-    id = Column(BigInteger, primary_key=True, auto_increment=True)
+    id = Column(BigInteger, auto_increment=True, primary_key=True)
     line1 = Column(Unicode(), )
     line2 = Column(Unicode(), )
     line3 = Column(Unicode(), )
     postcode = Column(Unicode(10), index=True)
+    created_at = Column(DateTime(timezone=True), server_default="now() at time zone 'utc'")
+    updated_at = Column(DateTime(timezone=True), server_default="now() at time zone 'utc'")
 
+    # --- Foreign Keys ---
+    person_id = Column(BigInteger, ForeignKey('persons.id'), nullable=False)
 
-    def __init__(self, id=None, line1=None, line2=None, line3=None, postcode=None):
+    # --- Relationships ---
+    person = relationship('Person', back_populates='addresses')
+
+    def __init__(self, id=None, line1=None, line2=None, line3=None, postcode=None, created_at=None, updated_at=None, person_id=None):
         self.id = id
         self.line1 = line1
         self.line2 = line2
         self.line3 = line3
         self.postcode = postcode
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.person_id = person_id
 
     def add(self, session):
         session.add(self)
 
-    def update(self, line1=None, line2=None, line3=None, postcode=None):
+    def update(self, line1=None, line2=None, line3=None, postcode=None, created_at=None, updated_at=None, person_id=None):
         # This function only updates a value if it is not None.
         # Falsy values go through in the normal way.
         # To set things to None use the usual syntax:
@@ -218,6 +163,15 @@ class Address(Base):
 
         if postcode is not None:
             self.postcode = postcode
+
+        if created_at is not None:
+            self.created_at = created_at
+
+        if updated_at is not None:
+            self.updated_at = updated_at
+
+        if person_id is not None:
+            self.person_id = person_id
 
     def delete(self, session):
         session.delete(self)
@@ -263,5 +217,109 @@ class Address(Base):
 
     def __repr__(self):
         return "<Address: {id}>".format(id=self.id)
+
+```
+
+```python
+from __future__ import unicode_literals, absolute_import, print_function
+
+from collections import namedtuple
+
+from sqlalchemy import Column, Unicode, BigInteger, Boolean, DateTime
+from sqlalchemy.orm import relationship
+
+
+from .alchemy_base import Base
+
+__author__ = 'danishabdullah'
+
+
+class Person(Base):
+    __tablename__ = 'persons'
+
+    id = Column(BigInteger, auto_increment=True, primary_key=True)
+    name = Column(Unicode(255), )
+    is_vip = Column(Boolean, )
+    created_at = Column(DateTime(timezone=True), server_default="now() at time zone 'utc'")
+    updated_at = Column(DateTime(timezone=True), server_default="now() at time zone 'utc'")
+
+    # --- Foreign Keys ---
+
+
+    # --- Relationships ---
+    addresses = relationship('Address', back_populates='person')
+
+    def __init__(self, id=None, name=None, is_vip=None, created_at=None, updated_at=None):
+        self.id = id
+        self.name = name
+        self.is_vip = is_vip
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def add(self, session):
+        session.add(self)
+
+    def update(self, name=None, is_vip=None, created_at=None, updated_at=None):
+        # This function only updates a value if it is not None.
+        # Falsy values go through in the normal way.
+        # To set things to None use the usual syntax:
+        #    Person.column_name = None
+
+        if name is not None:
+            self.name = name
+
+        if is_vip is not None:
+            self.is_vip = is_vip
+
+        if created_at is not None:
+            self.created_at = created_at
+
+        if updated_at is not None:
+            self.updated_at = updated_at
+
+    def delete(self, session):
+        session.delete(self)
+
+    def to_dict(self):
+        return {x: y for x, y in self.__dict__.items() if not x.startswith("_sa")}
+
+    def get_proxy_cls(self):
+        # PersonProxy is useful when you want to persist data
+        # independent of the sqlalchemy session. It's just a namedtuple
+        # that has very low memory/cpu footprint compared the regular
+        # orm class instances.
+        keys = self.to_dict().keys()
+        name = "PersonProxy"
+        return namedtuple(name, keys)
+
+    def to_proxy(self):
+        # Proxy-ing is useful when you want to persist data
+        # independent of the sqlalchemy session. It's just a namedtuple
+        # that has very low memory/cpu footprint compared the regular
+        # orm class instances.
+        cls = self._get_proxy_cls()
+        return cls(**self.to_dict())
+
+    @classmethod
+    def from_proxy(cls, proxy):
+        return cls(**proxy._asdict())
+
+    def __hash__(self):
+        return hash(str(self.id))
+
+    def __eq__(self, other):
+        return (self.id == other.id)
+
+    def __neq__(self, other):
+        return not (self.id == other.id)
+
+    def __str__(self):
+        return "<Person: {id}>".format(id=self.id)
+
+    def __unicode__(self):
+        return "<Person: {id}>".format(id=self.id)
+
+    def __repr__(self):
+        return "<Person: {id}>".format(id=self.id)
 
 ```

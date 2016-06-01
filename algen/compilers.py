@@ -28,6 +28,14 @@ class ModelCompiler(object):
         self.tab = '    '
         self.class_name = name
         self.column_definitions = column_def['columns']
+        self.foreign_key_definitions = column_def.get('foreign_keys', [])
+        self.relationship_definitions = column_def.get('relationships', [])
+
+    @staticmethod
+    def convert_case(name):
+        """Converts name from CamelCase to snake_case"""
+        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
     @property
     def table_name(self):
@@ -35,14 +43,14 @@ class ModelCompiler(object):
         if not self.class_name:
             raise ValueError
         else:
-            class_name = self.class_name.lower()
-        last_letter = class_name[-1]
+            tbl_name = ModelCompiler.convert_case(self.class_name)
+        last_letter = tbl_name[-1]
         if last_letter in ("y",):
-            return "{}ies".format(class_name[:-1])
+            return "{}ies".format(tbl_name[:-1])
         elif last_letter in ("s",):
-            return "{}es".format(class_name)
+            return "{}es".format(tbl_name)
         else:
-            return "{}s".format(class_name)
+            return "{}s".format(tbl_name)
 
     @staticmethod
     def get_column_type(string):
@@ -80,6 +88,16 @@ class ModelCompiler(object):
         return [n for n in self.types if n not in POSTGRES_TYPES]
 
     @property
+    def basic_types(self):
+        """Returns non-postgres types referenced in user supplied model """
+        if not self.foreign_key_definitions:
+            return self.standard_types
+        else:
+            tmp = self.standard_types
+            tmp.append('ForeignKey')
+            return tmp
+
+    @property
     def mutable_dict_types(self):
         return [n for n in self.types if n in MUTABLE_DICT_TYPES]
 
@@ -110,6 +128,15 @@ class ModelCompiler(object):
         return "\n".join(res)
 
     @property
+    def compiled_orm_imports(self):
+        """Returns compiled named imports required for the model"""
+        module = 'sqlalchemy.orm'
+        labels = []
+        if self.relationship_definitions:
+            labels.append("relationship")
+        return ALCHEMY_TEMPLATES.named_import.safe_substitute(module=module, labels=", ".join(labels))
+
+    @property
     def compiled_columns(self):
         """Returns compiled column definitions"""
 
@@ -117,6 +144,8 @@ class ModelCompiler(object):
             tmp = []
             for arg_name, arg_val in column.items():
                 if arg_name not in ('name', 'type'):
+                    if arg_name in ('server_default', 'server_onupdate'):
+                        arg_val = '"{}"'.format(arg_val)
                     tmp.append(ALCHEMY_TEMPLATES.column_arg.safe_substitute(arg_name=arg_name,
                                                                             arg_val=arg_val))
             return ", ".join(tmp)
@@ -139,9 +168,75 @@ class ModelCompiler(object):
         return join_string.join(res)
 
     @property
+    def compiled_foreign_keys(self):
+        """Returns compiled foreign key definitions"""
+
+        def get_column_args(column):
+            tmp = []
+            for arg_name, arg_val in column.items():
+                if arg_name not in ('name', 'type', 'reference'):
+                    if arg_name in ('server_default', 'server_onupdate'):
+                        arg_val = '"{}"'.format(arg_val)
+                    tmp.append(ALCHEMY_TEMPLATES.column_arg.safe_substitute(arg_name=arg_name,
+                                                                            arg_val=arg_val))
+            return ", ".join(tmp)
+
+        def get_fkey_args(column):
+            table = column['reference']['table']
+            column = column['reference']['column']
+            return ALCHEMY_TEMPLATES.foreign_key_arg.safe_substitute(reference_table=table, reference_column=column)
+
+        res = []
+        for column in self.foreign_key_definitions:
+            column_args = get_column_args(column)
+            column_type, type_params = ModelCompiler.get_col_type_info(column.get('type'))
+            column_name = column.get('name')
+            reference = get_fkey_args(column)
+            if column_type in MUTABLE_DICT_TYPES:
+                column_type = ALCHEMY_TEMPLATES.mutable_dict_type.safe_substitute(type=column_type,
+                                                                                  type_params=type_params)
+                type_params = ''
+            res.append(
+                ALCHEMY_TEMPLATES.foreign_key.safe_substitute(column_name=column_name,
+                                                              column_type=column_type,
+                                                              column_args=column_args,
+                                                              foreign_key_args=reference,
+                                                              type_params=type_params))
+        join_string = "\n" + self.tab
+        return join_string.join(res)
+
+    @property
+    def compiled_relationships(self):
+        """Returns compiled relationship definitions"""
+
+        def get_column_args(column):
+            tmp = []
+            for arg_name, arg_val in column.items():
+                if arg_name not in ('name', 'type', 'reference', 'class'):
+                    if arg_name in ('back_populates', ):
+                        arg_val = "'{}'".format(arg_val)
+                    tmp.append(ALCHEMY_TEMPLATES.column_arg.safe_substitute(arg_name=arg_name,
+                                                                            arg_val=arg_val))
+            return ", ".join(tmp)
+
+        res = []
+        for column in self.relationship_definitions:
+            column_args = get_column_args(column)
+            column_name = column.get('name')
+            cls_name = column.get("class")
+            res.append(
+                ALCHEMY_TEMPLATES.relationship.safe_substitute(column_name=column_name,
+                                                               column_args=column_args,
+                                                               class_name=cls_name))
+        join_string = "\n" + self.tab
+        return join_string.join(res)
+
+    @property
     def columns(self):
-        """Return names of all the columns referenced in user supplied model"""
-        return [col['name'] for col in self.column_definitions]
+        """Return names of all the addressable columns (including foreign keys) referenced in user supplied model"""
+        res = [col['name'] for col in self.column_definitions]
+        res.extend([col['name'] for col in self.foreign_key_definitions])
+        return res
 
     @property
     def compiled_init_func(self):
@@ -261,9 +356,12 @@ class ModelCompiler(object):
                                                        str_function=self.compiled_str_func,
                                                        unicode_function=self.compiled_unicode_func,
                                                        repr_function=self.compiled_repr_func,
-                                                       types=", ".join(self.standard_types),
+                                                       types=", ".join(self.basic_types),
                                                        username=self.username,
+                                                       foreign_keys=self.compiled_foreign_keys,
+                                                       relationships=self.compiled_relationships,
                                                        named_imports=self.compiled_named_imports,
+                                                       orm_imports=self.compiled_orm_imports,
                                                        get_proxy_cls_function=self.compiled_proxy_cls_func,
                                                        add_function=ALCHEMY_TEMPLATES.add_function.template,
                                                        delete_function=ALCHEMY_TEMPLATES.delete_function.template,

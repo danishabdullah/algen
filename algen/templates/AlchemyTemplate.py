@@ -17,6 +17,9 @@ class AlchemyTemplate(object):
     def __init__(self):
         self.model = cls
         self.column_definition = column_definition
+        self.relationship = relationship
+        self.foreign_key = foreign_key
+        self.foreign_key_arg = foreign_key_arg
         self.mutable_dict_type = mutable_dict_type
         self.column_arg = column_arg
         self.func_arg = func_arg
