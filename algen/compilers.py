@@ -5,6 +5,7 @@ from getpass import getuser
 
 from algen.consts import POSTGRES_TYPES, MUTABLE_DICT_TYPES, NO_PARAMS_TYPES
 from algen.templates import ALCHEMY_TEMPLATES
+from .logger import LOG
 
 __author__ = "danishabdullah"
 
@@ -34,12 +35,14 @@ class ModelCompiler(object):
     @staticmethod
     def convert_case(name):
         """Converts name from CamelCase to snake_case"""
+        LOG.info("Converting name from CamelCase to snake_case.")
         s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
         return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
     @property
     def table_name(self):
         """Pluralises the class_name using utterly simple algo and returns as table_name"""
+        LOG.info("Generating table name.")
         if not self.class_name:
             raise ValueError
         else:
@@ -54,14 +57,20 @@ class ModelCompiler(object):
 
     @staticmethod
     def get_column_type(string):
+        """Extracts and compiles column info"""
+        LOG.info("Extracting column type info.")
         return ModelCompiler.get_col_type_info(string)[0]
 
     @staticmethod
     def get_type_params(string):
+        """Extracts type params from column type definition"""
+        LOG.info("Extracting column type params info.")
         return ModelCompiler.get_col_type_info(string)[1]
 
     @staticmethod
     def get_col_type_info(string):
+        """Extracts column type information from column definition string"""
+        LOG.info("Extracting type and params info from the spec")
         for match in TYPE_INFO_REGEX.finditer(string):
             name, params = match.groups()
             return name if name else '', params if params else ''
@@ -70,6 +79,7 @@ class ModelCompiler(object):
     @property
     def types(self):
         """All the unique types found in user supplied model"""
+        LOG.info("Extracting all the types referenced in the spec.")
         res = []
         for column in self.column_definitions:
             tmp = column.get('type', None)
@@ -80,16 +90,19 @@ class ModelCompiler(object):
     @property
     def postgres_types(self):
         """Returns known postgres only types referenced in user supplied model"""
+        LOG.info("Extracting all the postgres specific types referenced in the spec.")
         return [n for n in self.types if n in POSTGRES_TYPES]
 
     @property
     def standard_types(self):
         """Returns non-postgres types referenced in user supplied model"""
+        LOG.info("Extracting all the standard types referenced in the spec.")
         return [n for n in self.types if n not in POSTGRES_TYPES]
 
     @property
     def basic_types(self):
         """Returns non-postgres types referenced in user supplied model """
+        LOG.info("Extracting all the basic types referenced in the spec.")
         if not self.foreign_key_definitions:
             return self.standard_types
         else:
@@ -99,11 +112,14 @@ class ModelCompiler(object):
 
     @property
     def mutable_dict_types(self):
+        """Return only mutable dict types referenced in the spec"""
+        LOG.info("Extracting all the types that can be modelled as mutable_dicts.")
         return [n for n in self.types if n in MUTABLE_DICT_TYPES]
 
     @property
     def primary_keys(self):
         """Returns the primary keys referenced in user supplied model"""
+        LOG.info("Extracting all the primary keys referenced in the spec.")
         res = []
         for column in self.column_definitions:
             if 'primary_key' in column.keys():
@@ -114,6 +130,7 @@ class ModelCompiler(object):
     @property
     def compiled_named_imports(self):
         """Returns compiled named imports required for the model"""
+        LOG.info("Compiling all the named imports.")
         res = []
         if self.postgres_types:
             res.append(
@@ -130,6 +147,7 @@ class ModelCompiler(object):
     @property
     def compiled_orm_imports(self):
         """Returns compiled named imports required for the model"""
+        LOG.info("Compiling all the orm imports.")
         module = 'sqlalchemy.orm'
         labels = []
         if self.relationship_definitions:
@@ -150,6 +168,7 @@ class ModelCompiler(object):
                                                                             arg_val=arg_val))
             return ", ".join(tmp)
 
+        LOG.info("Compiling all the column definitions.")
         res = []
         for column in self.column_definitions:
             column_args = get_column_args(column)
@@ -186,6 +205,7 @@ class ModelCompiler(object):
             column = column['reference']['column']
             return ALCHEMY_TEMPLATES.foreign_key_arg.safe_substitute(reference_table=table, reference_column=column)
 
+        LOG.info("Compiling all the foreign key definitions.")
         res = []
         for column in self.foreign_key_definitions:
             column_args = get_column_args(column)
@@ -219,6 +239,7 @@ class ModelCompiler(object):
                                                                             arg_val=arg_val))
             return ", ".join(tmp)
 
+        LOG.info("Compiling all the relationship definitions.")
         res = []
         for column in self.relationship_definitions:
             column_args = get_column_args(column)
@@ -234,6 +255,7 @@ class ModelCompiler(object):
     @property
     def columns(self):
         """Return names of all the addressable columns (including foreign keys) referenced in user supplied model"""
+        LOG.info("Extracting all the database column names from the spec.")
         res = [col['name'] for col in self.column_definitions]
         res.extend([col['name'] for col in self.foreign_key_definitions])
         return res
@@ -248,6 +270,7 @@ class ModelCompiler(object):
         def get_compiled_args(arg_name):
             return ALCHEMY_TEMPLATES.func_arg.safe_substitute(arg_name=arg_name)
 
+        LOG.info("Compiling the __init__ function.")
         join_string = "\n" + self.tab + self.tab
         column_assignments = join_string.join([get_column_assignment(n) for n in self.columns])
         init_args = ", ".join(get_compiled_args(n) for n in self.columns)
@@ -264,6 +287,7 @@ class ModelCompiler(object):
         def get_compiled_args(arg_name):
             return ALCHEMY_TEMPLATES.func_arg.safe_substitute(arg_name=arg_name)
 
+        LOG.info("Compiling the update function.")
         join_string = "\n" + self.tab + self.tab
         columns = [n for n in self.columns if n not in self.primary_keys]
         not_none_col_assignments = join_string.join([get_not_none_col_assignment(n) for n in columns])
@@ -280,6 +304,7 @@ class ModelCompiler(object):
         def get_primary_key_str(pkey_name):
             return "str(self.{})".format(pkey_name)
 
+        LOG.info("Compiling the __hash__ function.")
         hash_str = "+ ".join([get_primary_key_str(n) for n in self.primary_keys])
         return ALCHEMY_TEMPLATES.hash_function.safe_substitute(concated_primary_key_strs=hash_str)
 
@@ -287,6 +312,7 @@ class ModelCompiler(object):
         def get_primary_key_comparator(pkey_name):
             return ALCHEMY_TEMPLATES.key_col_comparator.safe_substitute(col=pkey_name)
 
+        LOG.info("Compiling a comparator function.")
         assert negation_type in ('positive', 'negative')
         negation_marker = "not " if negation_type == 'negative' else ""
         func_name = "__neq__" if negation_type == 'negative' else "__eq__"
@@ -299,10 +325,12 @@ class ModelCompiler(object):
     @property
     def compiled_eq_func(self):
         """Returns compiled equality function"""
+        LOG.info("Compiling the __eq__ function.")
         return self.comparator_compiler('positive')
 
     @property
     def compiled_neq_func(self):
+        LOG.info("Compiling the __neq__ function.")
         return self.comparator_compiler('negative')
 
     def representation_function_compiler(self, func_name):
@@ -314,6 +342,7 @@ class ModelCompiler(object):
         def get_col_evaluator(col):
             return ALCHEMY_TEMPLATES.col_evaluator.safe_substitute(col=col)
 
+        LOG.info("Compiling a representation function.")
         col_evaluators = ", ".join([get_col_evaluator(n) for n in self.primary_keys])
         col_accessors = ", ".join([get_col_accessor(n) for n in self.primary_keys])
 
@@ -325,26 +354,31 @@ class ModelCompiler(object):
     @property
     def compiled_str_func(self):
         """Returns compiled __str__ function"""
+        LOG.info("Compiling the __str__ function.")
         return self.representation_function_compiler('str')
 
     @property
     def compiled_unicode_func(self):
         """Return compiled __unicode__ function"""
+        LOG.info("Compiling the __unicode__ function.")
         return self.representation_function_compiler('unicode')
 
     @property
     def compiled_repr_func(self):
         """Returns compiled __repr__ function"""
+        LOG.info("Compiling the __repr__ function.")
         return self.representation_function_compiler('repr')
 
     @property
     def compiled_proxy_cls_func(self):
         """Returns compile get_proxy_cls function"""
+        LOG.info("Compiling the get_proxy_cls function.")
         return ALCHEMY_TEMPLATES.get_proxy_cls_function.safe_substitute(class_name=self.class_name)
 
     @property
     def compiled_model(self):
         """Returns compile ORM class for the user supplied model"""
+        LOG.info("Compiling the < > Model.".format(self.class_name, self.table_name))
         return ALCHEMY_TEMPLATES.model.safe_substitute(class_name=self.class_name,
                                                        table_name=self.table_name,
                                                        column_definitions=self.compiled_columns,

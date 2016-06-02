@@ -1,11 +1,13 @@
 from __future__ import print_function, unicode_literals
 
 from os import getcwd, path, makedirs
+import logging
 
 import yaml
 import click
 
 from algen.compilers import ModelCompiler
+from algen.logger import LOG
 
 __author__ = "danishabdullah"
 
@@ -47,49 +49,81 @@ def parse_cli_columns(name, columns):
 
 
 def ensure_names(model_defs):
-    for model_def in model_defs.values():
+    for key, model_def in model_defs.items():
+        LOG.info("Validating column names for '{}'".format(key))
         for column in model_def['columns']:
             if not column.get('name', None):
-                raise InvalidModelDefinition("Missing 'name")
+                msg = "Missing 'name' for a column in '{}'".format(key)
+                LOG.error(msg)
+                click.echo(msg)
+                raise InvalidModelDefinition(msg)
 
 
 def ensure_types(model_defs):
-    for model_def in model_defs.values():
+    for key, model_def in model_defs.items():
+        LOG.info("Validating column types for '{}'".format(key))
         for column in model_def['columns']:
             if not column.get('type', None):
-                raise InvalidModelDefinition("Missing 'type")
+                msg = "Missing 'type' for '{}' in '{}'".format(column.get('name', ''), key)
+                LOG.error(msg)
+                click.echo(msg)
+                raise InvalidModelDefinition(msg)
 
 
 def ensure_foreign_keys(model_defs):
-    for model_def in model_defs.values():
+    for key, model_def in model_defs.items():
+        LOG.info("Validating foreign keys for '{}'".format(key))
         for column in model_def.get('foreign_keys', []):
             if not column.get('name', None):
-                raise InvalidModelDefinition("Missing 'name")
+                msg = "Missing 'name' from foreign key column in '{}'".format(key)
+                LOG.error(msg)
+                click.echo(msg)
+                raise InvalidModelDefinition(msg)
             if not column.get('type', None):
-                raise InvalidModelDefinition("Missing 'type")
+                msg = "Missing 'type' from foreign key column '{}' in '{}'".format(column['name'], key)
+                LOG.error(msg)
+                click.echo(msg)
+                raise InvalidModelDefinition(msg)
             reference = column.get('reference', None)
             if not reference:
-                raise InvalidModelDefinition("Missing 'reference' from foreign key")
+                msg = "Missing 'reference' from foreign key '{}' in '{}'".format(column['name'], key)
+                LOG.error(msg)
+                click.echo(msg)
+                raise InvalidModelDefinition(msg)
             assert isinstance(reference, dict)
             if not reference.get('table', None):
-                raise InvalidModelDefinition("Missing 'reference.name' from foreign key")
+                msg = "Missing 'reference.name' from foreign key '{}' in '{}'".format(column['name'], key)
+                LOG.error(msg)
+                click.echo(msg)
+                raise InvalidModelDefinition(msg)
             if not reference.get('column', None):
-                raise InvalidModelDefinition("Missing 'reference.column' from foreign key")
+                msg = "Missing 'reference.column' from foreign key '{}' in '{}'".format(column['name'], key)
+                LOG.error(msg)
+                click.echo(msg)
+                raise InvalidModelDefinition(msg)
 
 
 def ensure_relationships(model_defs):
-    for model_def in model_defs.values():
+    for key, model_def in model_defs.items():
+        LOG.info("Validating relationships for '{}'".format(key))
         for column in model_def.get('relationships', []):
             if not column.get('name', None):
-                raise InvalidModelDefinition("Missing 'name")
+                msg = "Missing 'name' from relationship column in '{}'".format(key)
+                LOG.error(msg)
+                click.echo(msg)
+                raise InvalidModelDefinition(msg)
             if not column.get('class', None):
-                raise InvalidModelDefinition("Missing 'class' from relationship")
+                msg = "Missing 'class' from relationship column '{}' in '{}'".format(column.get('name'), key)
+                LOG.error(msg)
+                click.echo(msg)
+                raise InvalidModelDefinition(msg)
 
 
 def parse_yaml(pth):
     if not path.exists(pth):
         raise FileNotFound
 
+    LOG.info("Parsing YAML from '{}'".format(pth))
     with open(pth, 'r') as fyle:
         model_defs = yaml.load(fyle)
     assert isinstance(model_defs, dict)
@@ -123,7 +157,10 @@ def get_model_defs(name=None, columns=None, yaml=None):
                                     "supersedes the column definition provided "
                                     "through --columns option."),
               type=click.Path(exists=True))
-def cli(name, columns, destination, yaml):
+@click.option('--verbose', '-v', help=("Show detailed logging info"), is_flag=True)
+def cli(name, columns, destination, yaml, verbose):
+    if verbose:
+        LOG.setLevel(logging.DEBUG)
     click.echo('Creating Models with the following options:\n'
                '  --name:{}\n  --columns:{}\n  --destination:{}\n'
                '  --yaml:{}'.format(name, columns, destination, yaml))
@@ -135,6 +172,7 @@ def cli(name, columns, destination, yaml):
         # destination cannot be created or accessed
         destination = check_or_create_models_dir(destination=destination)
     except DirectoryCreationException as e:
+        LOG.exception("Couldn't access/create directory", exc_info=True)
         click.echo("An error happened while trying to access/create the 'models' "
                    "directory. Please make sure that you have the "
                    "appropriate ownership and right provided by the os.")
@@ -152,15 +190,17 @@ def cli(name, columns, destination, yaml):
                 # not found errors
                 model_defs = get_model_defs(yaml=yaml)
             except FileNotFound:
-                click.echo("The yaml file does not exist. Exiting!")
+                msg = "The yaml file does not exist. Exiting!"
+                LOG.error(msg)
+                click.echo(msg)
                 return
         else:
             if not name:
-                click.echo("Model must have a name!")
+                click.echo("Invalid Model definition")
                 return
             model_defs = get_model_defs(columns=columns, name=name)
     except InvalidModelDefinition:
-        click.echo('All columns must have a name!')
+        click.echo('Invalid Model definition')
         return
     for name, column_defs in model_defs.items():
         model = ModelCompiler(name, column_defs).compiled_model
@@ -168,9 +208,12 @@ def cli(name, columns, destination, yaml):
         try:
             # file is not writeable
             with open(filename, 'w') as fyle:
-                click.echo("Writing {} to {}".format(name, filename))
+                msg = "Writing {} to {}".format(name, filename)
+                LOG.info(msg)
+                click.echo(msg)
                 fyle.write(model)
         except IOError:
+            LOG.exception("IOError", exc_info=True)
             click.echo("The following python model was generated:\n\n{}"
                        "Cannot write model  to {}. Make sure the "
                        "destination is writable.\n"
