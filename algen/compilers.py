@@ -315,7 +315,7 @@ class ModelCompiler(object):
         LOG.info("Compiling a comparator function.")
         assert negation_type in ('positive', 'negative')
         negation_marker = "not " if negation_type == 'negative' else ""
-        func_name = "__neq__" if negation_type == 'negative' else "__eq__"
+        func_name = "__ne__" if negation_type == 'negative' else "__eq__"
         key_comparators = [get_primary_key_comparator(n) for n in self.primary_keys]
         key_comparators = " and ".join(key_comparators)
         return ALCHEMY_TEMPLATES.comparator_function.safe_substitute(func_name=func_name,
@@ -330,7 +330,7 @@ class ModelCompiler(object):
 
     @property
     def compiled_neq_func(self):
-        LOG.info("Compiling the __neq__ function.")
+        LOG.info("Compiling the __ne__ function.")
         return self.comparator_compiler('negative')
 
     def representation_function_compiler(self, func_name):

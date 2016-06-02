@@ -39,6 +39,7 @@ Options:
                           directory inside the current working directory
   -y, --yaml PATH         Yaml file describing the Model. This supersedes the
                           column definition provided through --columns option.
+  -v, --verbose           Show detailed logging info
   --help                  Show this message and exit.
 ```
 
@@ -206,7 +207,7 @@ class Address(Base):
     def __eq__(self, other):
         return (self.id == other.id)
 
-    def __neq__(self, other):
+    def __ne__(self, other):
         return not (self.id == other.id)
 
     def __str__(self):
@@ -310,7 +311,7 @@ class Person(Base):
     def __eq__(self, other):
         return (self.id == other.id)
 
-    def __neq__(self, other):
+    def __ne__(self, other):
         return not (self.id == other.id)
 
     def __str__(self):
